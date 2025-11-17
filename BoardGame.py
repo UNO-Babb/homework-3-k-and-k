@@ -1,108 +1,106 @@
-#Example Flask App for a hexaganal tile game
-#Logic is in this python file
-
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, request, redirect
+import random
 
 app = Flask(__name__)
 
-import random
+# ---------------- GRID MAP ----------------
+GRID_WIDTH = 5
+GRID_HEIGHT = 4
+TOTAL_TILES = GRID_WIDTH * GRID_HEIGHT
 
-# ----- GAME SETTINGS -----
-BOARD_SIZE = 20
+ISLAND_GRID = [
+    ("Beach", None), ("Beach", None), ("Village Path", None), ("Village Path", None), ("Jungle", "trap"),
+    ("Jungle", None), ("Bridge", None), ("River", "storm"), ("Lake Edge", "boost"), ("Lake", None),
+    ("Lake", None), ("Lake", None), ("Mountain", None), ("Cave", "trap"), ("Lava Crack", "quicksand"),
+    ("Volcano", None), ("Volcano Top", None), ("Cliffside", None), ("Market Road", "boost"), ("FINISH", None)
+]
 
-# Special spaces
-SPECIAL_SPACES = {
-    3: "boost",
-    6: "trap",
-    10: "storm",
-    15: "quicksand"
-}
+# ---------------- GAME STATE ----------------
+game_started = False
+positions = []
+skip_turn = []
+current_player = 0
+winner = None
+last_action = ""
 
-# ----- FUNCTIONS -----
+# ---------------- EFFECTS ----------------
+def apply_effect(pos):
+    name, effect = ISLAND_GRID[pos]
 
-def roll_dice():
-    return random.randint(1, 6)
+    if effect is None:
+        return pos, False, f"Landed on {name}. No effect."
 
-def print_board(player_positions):
-    board = ["_"] * BOARD_SIZE
-    for i, pos in enumerate(player_positions):
-        if pos >= BOARD_SIZE:
-            board[-1] = f"P{i+1}"
+    if effect == "boost":
+        new = min(pos + 3, TOTAL_TILES - 1)
+        return new, False, f"Boost! Move +3 to {new} ({ISLAND_GRID[new][0]})"
+
+    if effect == "trap":
+        new = max(pos - 2, 0)
+        return new, False, f"Trap! Move -2 to {new} ({ISLAND_GRID[new][0]})"
+
+    if effect == "storm":
+        return pos, True, f"Storm! Lose next turn."
+
+    if effect == "quicksand":
+        return 0, False, f"Quicksand! Back to start."
+
+    return pos, False, ""
+
+# ---------------- ROUTES ----------------
+@app.route("/", methods=["GET", "POST"])
+def index():
+    global game_started, positions, skip_turn
+    global current_player, winner, last_action
+
+    # Start game
+    if request.method == "POST" and "players" in request.form:
+        n = int(request.form["players"])
+        positions = [0] * n
+        skip_turn = [False] * n
+        current_player = 0
+        winner = None
+        last_action = ""
+        game_started = True
+        return redirect("/")
+
+    # Player turn
+    if request.method == "POST" and game_started and winner is None:
+
+        if skip_turn[current_player]:
+            last_action = f"Player {current_player+1} skipped a turn (storm)."
+            skip_turn[current_player] = False
         else:
-            board[pos] = f"P{i+1}"
-    print("Board:", " ".join(board))
+            roll = random.randint(1, 6)
+            old_pos = positions[current_player]
+            positions[current_player] += roll
 
-def apply_special_space(position):
-    if position not in SPECIAL_SPACES:
-        return position, False
+            if positions[current_player] >= TOTAL_TILES - 1:
+                positions[current_player] = TOTAL_TILES - 1
+                winner = current_player
+                last_action = f"Player {current_player+1} rolled {roll} and REACHED THE FINISH!"
+            else:
+                new_pos, skip, effect_msg = apply_effect(positions[current_player])
+                positions[current_player] = new_pos
+                skip_turn[current_player] = skip
+                tile_name = ISLAND_GRID[new_pos][0]
+                last_action = f"Player {current_player+1} rolled {roll}. Moved from {old_pos} to {positions[current_player]} ({tile_name}). {effect_msg}"
 
-    event = SPECIAL_SPACES[position]
-    print(f"*** SPECIAL SPACE! → {event.upper()} ***")
-    skip_turn = False
+        current_player = (current_player + 1) % len(positions)
+        return redirect("/")
 
-    if event == "boost":
-        print("Boost! Move forward +3 spaces.")
-        position += 3
+    return render_template(
+        "index.html",
+        game_started=game_started,
+        grid=ISLAND_GRID,
+        width=GRID_WIDTH,
+        positions=positions,
+        current=current_player + 1,
+        winner=winner,
+        last_action=last_action
+    )
 
-    elif event == "trap":
-        print("Trap! Move back -2 spaces.")
-        position -= 2
-        if position < 0:
-            position = 0
-
-    elif event == "storm":
-        print("Storm! You lose your next turn.")
-        skip_turn = True
-
-    elif event == "quicksand":
-        print("Quicksand! Back to the start!")
-        position = 0
-
-    return position, skip_turn
-
-def play_game():
-    print("🎲 Welcome to the Multiplayer Dice Adventure!")
-    print("Special spaces:", SPECIAL_SPACES)
-    print()
-
-    # ----- SETUP PLAYERS -----
-    num_players = int(input("How many players? (2–6): "))
-    player_positions = [0] * num_players
-    skip_turns = [False] * num_players
-
-    winner = None
-
-    # ----- GAME LOOP -----
-    while winner is None:
-        for player in range(num_players):
-            print(f"\n--- Player {player+1}'s turn ---")
-
-            # Skip turn if needed
-            if skip_turns[player]:
-                print("You lose this turn (storm effect).")
-                skip_turns[player] = False
-                continue
-
-            input("Press ENTER to roll the dice...")
-            dice = roll_dice()
-            print(f"Player {player+1} rolled: {dice}")
-
-            # Move player
-            player_positions[player] += dice
-            if player_positions[player] >= BOARD_SIZE:
-                winner = player
-                break
-
-            # Apply special space effects
-            new_pos, skip = apply_special_space(player_positions[player])
-            player_positions[player] = new_pos
-            skip_turns[player] = skip
-
-            # Print updated board
-            print_board(player_positions)
-
-    # ----- WINNER -----
-    print(f"\n🎉 Player {winner+1} has reached the finish and WINS!")
-    
+# ---------------- OPEN PORT ----------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    # Opens a playable port 8080
+    app.run(host="0.0.0.0", port=8080)
+
