@@ -54,7 +54,13 @@ def index():
 
     # Start game
     if request.method == "POST" and "players" in request.form:
-        n = int(request.form["players"])
+        try:
+            n = int(request.form["players"])
+            if n < 2 or n > 4:
+                n = 2
+        except:
+            n = 2
+
         positions = [0] * n
         skip_turn = [False] * n
         current_player = 0
@@ -88,6 +94,7 @@ def index():
         current_player = (current_player + 1) % len(positions)
         return redirect("/")
 
+    # Render template
     return render_template(
         "index.html",
         game_started=game_started,
@@ -101,4 +108,4 @@ def index():
 
 # ---------------- OPEN PORT ----------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="0.0.0.0", port=8080, debug=True)  # debug=True shows exact errors
