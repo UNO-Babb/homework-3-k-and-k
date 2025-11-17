@@ -103,5 +103,6 @@ def play_game():
 
     # ----- WINNER -----
     print(f"\n🎉 Player {winner+1} has reached the finish and WINS!")
+    
 if __name__ == "__main__":
     app.run(debug=True)
