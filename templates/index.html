@@ -2,13 +2,18 @@
 <html>
 <head>
     <title>Island Dice Game</title>
+    <style>
+        table { border-collapse: collapse; }
+        td { width: 120px; height: 60px; text-align: center; vertical-align: middle; border: 1px solid black; }
+        .player { color: red; font-weight: bold; }
+    </style>
 </head>
 <body>
-<h1>🌴 Island Grid Adventure 🌋</h1>
+<h1>🌴 Island Dice Game 🌋</h1>
 
 {% if not game_started %}
 <form method="post">
-    <label>Number of players:</label>
+    <label>Number of players (2-4):</label>
     <input type="number" name="players" min="2" max="4" required>
     <button type="submit">Start Game</button>
 </form>
@@ -20,13 +25,15 @@
 </form>
 
 <h2>Grid:</h2>
-<table border="1">
+<table>
 {% for i in range(grid|length) %}
     {% if i % width == 0 %}<tr>{% endif %}
     <td>
         {{ grid[i][0] }}<br>
-        {% for p, pos in positions|enumerate %}
-            {% if pos == i %}Player {{ p+1 }}<br>{% endif %}
+        {% for p in range(positions|length) %}
+            {% if positions[p] == i %}
+                <span class="player">Player {{ p+1 }}</span><br>
+            {% endif %}
         {% endfor %}
     </td>
     {% if i % width == width-1 %}</tr>{% endif %}
@@ -35,6 +42,9 @@
 
 {% if winner is not none %}
 <h2>🎉 Player {{ winner+1 }} Wins! 🎉</h2>
+<form method="post">
+    <button name="players" value="{{ positions|length }}">Restart Game</button>
+</form>
 {% endif %}
 {% endif %}
 </body>
