@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+<head>
+    <title>Island Dice Game</title>
+    <style>
+        table { border-collapse: collapse; }
+        td { width: 120px; height: 60px; text-align: center; vertical-align: middle; border: 1px solid black; }
+        .player { color: red; font-weight: bold; }
+    </style>
+</head>
+<body>
+<h1>🌴 Island Dice Game 🌋</h1>
+
+{% if not game_started %}
+<form method="post">
+    <label>Number of players (2-4):</label>
+    <input type="number" name="players" min="2" max="4" required>
+    <button type="submit">Start Game</button>
+</form>
+{% else %}
+<h3>Current Turn: Player {{ current }}</h3>
+<h3>{{ last_action }}</h3>
+<form method="post">
+    <button type="submit">Roll Dice</button>
+</form>
+
+<h2>Grid:</h2>
+<table>
+{% for i in range(grid|length) %}
+    {% if i % width == 0 %}<tr>{% endif %}
+    <td>
+        {{ grid[i][0] }}<br>
+        {% for p in range(positions|length) %}
+            {% if positions[p] == i %}
+                <span class="player">Player {{ p+1 }}</span><br>
+            {% endif %}
+        {% endfor %}
+    </td>
+    {% if i % width == width-1 %}</tr>{% endif %}
+{% endfor %}
+</table>
+
+{% if winner is not none %}
+<h2>🎉 Player {{ winner+1 }} Wins! 🎉</h2>
+<form method="post">
+    <button name="players" value="{{ positions|length }}">Restart Game</button>
+</form>
+{% endif %}
+{% endif %}
+</body>
+</html>
